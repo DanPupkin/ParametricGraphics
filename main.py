@@ -2,12 +2,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sympy as smp
 from sympy.abc import t, x
-from sympy import is_monotonic
-from sympy import singularities
-from sympy import Interval, oo
-from sympy import im
+from sympy import Interval, oo, im, periodicity, is_monotonic, singularities
+from telebot.async_telebot import AsyncTeleBot
+import asyncio
+
+class graphics_bot():
+    token = "6051371338:AAFIYhKf367OtDhNsH9OAhkO0V6zLG418RQ"
+    bot = AsyncTeleBot(token)
+    def __init__(self):
+        self.visual = basic_visualisator()
+
+    @bot.message_handler(commands=['start'])
+    @bot.message_handler(commands=['help', 'start'])
+    async def send_welcome(message):
+        await graphics_bot.bot.reply_to(message, """\
+    Hi there, I am EchoBot.
+    I am here to echo your kind words back to you. Just say anything nice and I'll say the exact same thing to you!\
+    """)
+
+    # Handle all other messages with content_type 'text' (content_types defaults to ['text'])
+    @bot.message_handler(func=lambda message: True)
+    async def echo_message(message):
+        await graphics_bot.bot.reply_to(message, message.text)
+
+
 class basic_visualisator:
-    def __init__(self, start, end, accuracy:int):
+    def __init__(self, start=-5, end=5, accuracy:int=300):
         self.start = start
         self.end = end
         self.t_range = np.linspace(start, end, accuracy, dtype=np.float32)
@@ -18,6 +38,15 @@ class basic_visualisator:
         print(f"func:{func_excr}, point: {point}, value={func_excr.subs(argument, point)}")
     def two_var_parametric_function_print(self, first_function, second_function, argument = "t"):
         first_excr = smp.sympify(first_function)
+        period = periodicity(first_excr, t, check = True)
+        if period:
+            print(f"функция переодическая с периодом {period}")
+            if abs(self.end - self.start) > period:
+                self.end = self.start + 2*period
+#из-за неведомых мне особенностей параметрических переодических функций иногда требуется 2 period, а иногда
+#хватит и одного, пока можно смириться с повторениием построения
+
+
         second_excr = smp.sympify(second_function)
         xt_breaks = singularities(first_excr, t)
         for i in range(len(self.t_range)):
@@ -74,17 +103,11 @@ class basic_visualisator:
         #interval.args[0] and[1] is a start and end of the interval
         print(xt_monotonic_intervals, "intervals")
 
-# нормализация графика на разрывах
-        #так же где-то в этом районе надо будет позднее дописать фикс того, что иксы пропадают, когда
-        #их очень много в окресностях одной точки
-        #xt[xt.argmax()] = None
-        #xt[xt.argmin()] = None
-
+# удаление произвольных асимптот на в разрывах
         for i in range(len(xt)-1):
             if xt[i]:
-                if abs(xt[i] - xt[i+1])>= 5:
+                if abs(xt[i] - xt[i+1])>= 3:
                     xt[i] = None
-
 
         for interval in xt_monotonic_intervals:
             print(interval)
@@ -135,15 +158,22 @@ class basic_visualisator:
 
 def main():
     #невозможно считать значения на (-inf;inf), поэтому нужно как-то определить оптимальную длину интервала, которой хватит всем
-    visual = basic_visualisator(-10, 10, 300)
+    #из-за чего на интервалах, где функция xt монотонна могут быть разрывы, но с увелечением точности\диапазона t
+    # разрывы становятся меньше или пропадают
+    #visual = basic_visualisator(-10, 10, 300)
 
     #x = "(t**2)/(t**2-1)"
     #y = "(t**2)/(t**3+1)"
     #x = "t/(1+t**3)"
     #y = "(t**2)/(1+t**3)"
-    x = "2*sin(2*t)"
-    y = "2*cos(t)"
-    visual.two_var_parametric_function_print(x, y)
-
+    #x = "2*sin(2*t)"
+    #y = "2*cos(t)"
+    #x = "cos(t)**3"
+    #y = "sin(t)**3"
+    x = "cos(2*t)"
+    y = "sin(3*t)"
+    #visual.two_var_parametric_function_print(x, y)
+    g_bot = graphics_bot()
+    asyncio.run(g_bot.bot.polling())
 if __name__ == '__main__':
     main()
